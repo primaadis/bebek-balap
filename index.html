@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Derpy Duck Derby 🦆🏁 - Balapan Bebek Kocak</title>
+  <!-- PeerJS untuk Multiplayer P2P tanpa Server backend -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <!-- Canvas Confetti untuk efek juara -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <style>
+    :root {
+      --primary: #ffbd00;
+      --primary-dark: #e09f00;
+      --water: #38b6ff;
+      --bg: #1c2541;
+      --card: #0b132b;
+      --accent: #ff007f;
+      --text: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      margin: 0;
+      padding: 0;
+      font-family: 'Fredoka', 'Nunito', 'Segoe UI', system-ui, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      touch-action: none;
+    }
+
+    /* Modal / UI Overlay */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(11, 19, 43, 0.88);
+      backdrop-filter: blur(8px);
+      z-index: 10;
+      transition: all 0.3s ease;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .card {
+      background: #1e293b;
+      padding: 2rem;
+      border-radius: 28px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.1);
+      width: 90%;
+      max-width: 440px;
+      text-align: center;
+      border: 3px solid #334155;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      color: var(--primary);
+      text-shadow: 0 4px 0 #a37000;
+      margin-bottom: 0.2rem;
+      transform: rotate(-2deg);
+    }
+
+    .tagline {
+      font-size: 0.95rem;
+      color: #94a3b8;
+      margin-bottom: 1.5rem;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: 14px;
+      border: 2px solid #475569;
+      background: #0f172a;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus {
+      border-color: var(--primary);
+    }
+
+    .color-picker-group {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 1rem;
+    }
+
+    .color-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 3px solid transparent;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .color-btn.selected {
+      border-color: #fff;
+      transform: scale(1.2);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 16px;
+      font-size: 1.1rem;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 6px 0 rgba(0,0,0,0.3);
+      transition: all 0.1s;
+      margin-top: 8px;
+      text-transform: uppercase;
+    }
+
+    .btn:active {
+      transform: translateY(4px);
+      box-shadow: 0 2px 0 rgba(0,0,0,0.3);
+    }
+
+    .btn-primary { background: var(--primary); color: #422006; box-shadow: 0 6px 0 #b45309; }
+    .btn-secondary { background: #38bdf8; color: #082f49; box-shadow: 0 6px 0 #0284c7; }
+    .btn-accent { background: #f43f5e; color: #fff; box-shadow: 0 6px 0 #be123c; }
+
+    /* Lobby List */
+    .player-list {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin: 15px 0;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+
+    .player-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #0f172a;
+      padding: 8px 12px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      font-weight: bold;
+    }
+
+    .duck-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+    }
+
+    /* Game HUD */
+    #hud {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      right: 15px;
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .hud-card {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(4px);
+      padding: 8px 16px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.1);
+      font-weight: bold;
+      font-size: 1rem;
+    }
+
+    #ranking-board {
+      top: 60px;
+      left: 15px;
+      position: absolute;
+      background: rgba(15, 23, 42, 0.6);
+      padding: 8px 12px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      pointer-events: none;
+    }
+
+    /* On-Screen Mobile Controls */
+    #mobile-controls {
+      position: absolute;
+      bottom: 25px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-between;
+      padding: 0 30px;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .ctrl-btn {
+      width: 75px;
+      height: 75px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.25);
+      border: 3px solid rgba(255,255,255,0.5);
+      backdrop-filter: blur(4px);
+      font-size: 1.8rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: auto;
+      touch-action: none;
+    }
+
+    .ctrl-btn:active {
+      background: rgba(255, 255, 255, 0.5);
+      transform: scale(0.92);
+    }
+
+    #btn-quack {
+      background: rgba(255, 189, 0, 0.5);
+      border-color: #ffbd00;
+      font-size: 1rem;
+      font-weight: 900;
+      color: #fff;
+    }
+
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      background: #0284c7;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Kanvas Game -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div class="hud-card" id="hud-lap">Lap: 1 / 3</div>
+    <div class="hud-card" id="hud-speed">Kecepatan: 0</div>
+  </div>
+  <div id="ranking-board" class="hidden"></div>
+
+  <!-- Mobile Controls -->
+  <div id="mobile-controls" class="hidden">
+    <div style="display:flex; gap: 15px;">
+      <div class="ctrl-btn" id="btn-left">◀</div>
+      <div class="ctrl-btn" id="btn-right">▶</div>
+    </div>
+    <div style="display:flex; gap: 15px;">
+      <div class="ctrl-btn" id="btn-quack">QUACK!</div>
+      <div class="ctrl-btn" id="btn-gas">⚡</div>
+    </div>
+  </div>
+
+  <!-- Main Menu -->
+  <div id="menu-screen" class="screen">
+    <div class="card">
+      <h1>DERPY DUCK</h1>
+      <p class="tagline">Grand Prix Bebek Karet Ekstrem 🦆💨</p>
+
+      <input type="text" id="player-name" placeholder="Nama Bebekmu..." maxlength="10">
+      
+      <p style="font-size: 0.85rem; margin-bottom: 6px; color: #94a3b8;">PILIH WARNA BEBEK:</p>
+      <div class="color-picker-group" id="color-options"></div>
+
+      <button class="btn btn-primary" id="btn-create-room">Buat Room (Host)</button>
+      <div style="margin: 10px 0; font-weight: bold; color: #64748b;">— ATAU —</div>
+      <input type="text" id="join-room-id" placeholder="Masukkan Kode Room..." style="text-transform:uppercase;">
+      <button class="btn btn-secondary" id="btn-join-room">Gabung Room</button>
+      <button class="btn btn-accent" id="btn-solo" style="margin-top: 15px; font-size: 0.9rem;">Mode Latihan (Solo + Bot)</button>
+    </div>
+  </div>
+
+  <!-- Lobby Screen -->
+  <div id="lobby-screen" class="screen hidden">
+    <div class="card">
+      <h2>RUANG TUNGGU</h2>
+      <p style="color: #94a3b8; margin: 5px 0;">Bagikan Kode ini ke teman (Maks 8 Bebek):</p>
+      <div style="background:#0f172a; padding:10px; border-radius:12px; font-size:1.6rem; font-weight:900; letter-spacing:3px; color:var(--primary); margin-bottom:10px;" id="display-room-code">
+        ----
+      </div>
+      
+      <div class="player-list" id="lobby-players"></div>
+
+      <button class="btn btn-primary hidden" id="btn-start-race">MULAI BALAPAN! 🏁</button>
+      <p id="waiting-msg" style="font-size:0.85rem; color:#94a3b8; margin-top:8px;">Menunggu Host memulai lomba...</p>
+    </div>
+  </div>
+
+  <!-- Game Over Screen -->
+  <div id="gameover-screen" class="screen hidden">
+    <div class="card">
+      <h1>JUARA BALAP! 🏆</h1>
+      <div id="podium-list" style="margin: 1.5rem 0; font-size: 1.1rem; text-align: left;"></div>
+      <button class="btn btn-primary" onclick="location.reload()">Main Lagi</button>
+    </div>
+  </div>
+
+  <script>
+    /* ========================================================
+       1. SYNTH AUDIO ENGINE (Web Audio API Tanpa File Eksternal)
+       ======================================================== */
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) audioCtx = new AudioCtx();
+    }
+
+    function playSqueak() {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.15);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.15);
+    }
+
+    function playSplash() {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+      gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.2);
+    }
+
+    function playBoost() {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.3);
+    }
+
+    /* ========================================================
+       2. KONSTANTA & DESAIN WARNA
+       ======================================================== */
+    const DUCK_COLORS = ['#ffbd00', '#f43f5e', '#38bdf8', '#4ade80', '#c084fc', '#fb923c', '#e2e8f0', '#2dd4bf'];
+    let selectedColor = DUCK_COLORS[0];
+    let myPlayerId = 'p_' + Math.random().toString(36).substr(2, 6);
+    let myName = 'Bebek_' + Math.floor(Math.random() * 90 + 10);
+    let isHost = false;
+    let peer = null;
+    let connections = {};
+    let gameState = 'MENU'; // MENU, LOBBY, RACING, FINISHED
+    let isSoloMode = false;
+
+    // Inisialisasi Color Picker UI
+    const colorContainer = document.getElementById('color-options');
+    DUCK_COLORS.forEach((c, idx) => {
+      const btn = document.createElement('div');
+      btn.className = `color-btn ${idx === 0 ? 'selected' : ''}`;
+      btn.style.backgroundColor = c;
+      btn.onclick = () => {
+        document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        selectedColor = c;
+      };
+      colorContainer.appendChild(btn);
+    });
+
+    /* ========================================================
+       3. SISTEM LINTASAN (TRACK) & FISIKA
+       ======================================================== */
+    const TRACK_POINTS = [
+      {x: 400, y: 300}, {x: 800, y: 300}, {x: 1300, y: 400},
+      {x: 1500, y: 800}, {x: 1300, y: 1200}, {x: 900, y: 1300},
+      {x: 600, y: 1000}, {x: 400, y: 1200}, {x: 200, y: 800}
+    ]; // Sirkuit Kolam Air
+    const TRACK_WIDTH = 220;
+    const TOTAL_LAPS = 3;
+
+    // Obstacles (Sabun licin & Roti Turbo)
+    const OBSTACLES = [
+      {x: 850, y: 320, type: 'SOAP', radius: 30},
+      {x: 1450, y: 750, type: 'BOOST', radius: 25},
+      {x: 700, y: 1050, type: 'SOAP', radius: 35},
+      {x: 300, y: 900, type: 'BOOST', radius: 25}
+    ];
+
+    class Duck {
+      constructor(id, name, color, isBot = false) {
+        this.id = id;
+        this.name = name;
+        this.color = color;
+        this.isBot = isBot;
+        this.x = 350 + Math.random() * 40;
+        this.y = 260 + Math.random() * 60;
+        this.angle = 0;
+        this.speed = 0;
+        this.maxSpeed = 7.5;
+        this.turnSpeed = 0.055;
+        this.wobble = 0;
+        this.radius = 22;
+        
+        // Progress & Lap
+        this.currentWayPoint = 0;
+        this.lap = 1;
+        this.finished = false;
+        this.finishTime = 0;
+
+        // Kontrol
+        this.input = { left: false, right: false, gas: false, quack: false };
+        this.quackCooldown = 0;
+        this.slipTime = 0;
+      }
+
+      update() {
+        if (this.finished) {
+          this.speed *= 0.95;
+          return;
+        }
+
+        // AI Sederhana untuk Bot
+        if (this.isBot) {
+          const target = TRACK_POINTS[this.currentWayPoint];
+          const angleToTarget = Math.atan2(target.y - this.y, target.x - this.x);
+          let diff = angleToTarget - this.angle;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+
+          this.input.left = diff < -0.1;
+          this.input.right = diff > 0.1;
+          this.input.gas = true;
+          if (Math.random() < 0.01) this.input.quack = true;
+        }
+
+        // Efek Sabun Licin
+        if (this.slipTime > 0) {
+          this.slipTime--;
+          this.angle += 0.2; // Berputar tak terkendali
+        } else {
+          if (this.input.left) this.angle -= this.turnSpeed;
+          if (this.input.right) this.angle += this.turnSpeed;
+        }
+
+        // Gas & Resistensi Air
+        if (this.input.gas) {
+          this.speed = Math.min(this.speed + 0.25, this.maxSpeed);
+        } else {
+          this.speed *= 0.96; // Gesekan air
+        }
+
+        // Quack Boost
+        if (this.input.quack && this.quackCooldown <= 0) {
+          this.speed = Math.min(this.speed + 4.5, this.maxSpeed * 1.6);
+          this.quackCooldown = 90; // Frame jeda
+          playBoost();
+          createBubbles(this.x, this.y, 15);
+        }
+        if (this.quackCooldown > 0) this.quackCooldown--;
+
+        // Gerak maju
+        this.x += Math.cos(this.angle) * this.speed;
+        this.y += Math.sin(this.angle) * this.speed;
+
+        // Goyangan menggemaskan waktu renang
+        if (this.speed > 0.5) {
+          this.wobble += 0.25;
+        }
+
+        // Cek Checkpoint / Lap
+        const target = TRACK_POINTS[this.currentWayPoint];
+        const dist = Math.hypot(target.x - this.x, target.y - this.y);
+        if (dist < 180) {
+          this.currentWayPoint = (this.currentWayPoint + 1) % TRACK_POINTS.length;
+          if (this.currentWayPoint === 0) {
+            this.lap++;
+            if (this.lap > TOTAL_LAPS) {
+              this.finished = true;
+              this.finishTime = Date.now();
+            }
+          }
+        }
+
+        // Tabrakan Rintangan
+        OBSTACLES.forEach(obs => {
+          const d = Math.hypot(obs.x - this.x, obs.y - this.y);
+          if (d < obs.radius + this.radius) {
+            if (obs.type === 'SOAP' && this.slipTime <= 0) {
+              this.slipTime = 30; // Licin!
+              this.speed *= 0.6;
+              playSqueak();
+            } else if (obs.type === 'BOOST') {
+              this.speed = this.maxSpeed * 1.5;
+              playBoost();
+            }
+          }
+        });
+      }
+    }
+
+    let players = {};
+    let bubbles = [];
+
+    function createBubbles(x, y, count = 5) {
+      for (let i = 0; i < count; i++) {
+        bubbles.push({
+          x: x + (Math.random() - 0.5) * 15,
+          y: y + (Math.random() - 0.5) * 15,
+          radius: Math.random() * 5 + 3,
+          alpha: 1,
+          vx: (Math.random() - 0.5) * 2,
+          vy: (Math.random() - 0.5) * 2
+        });
+      }
+    }
+
+    /* ========================================================
+       4. LOGIKA NETWORKING (PEERJS PEER-TO-PEER MULTIPLAYER)
+       ======================================================== */
+    function setupPeer(idToUse = null) {
+      peer = new Peer(idToUse, { debug: 1 });
+
+      peer.on('open', (id) => {
+        myPlayerId = id;
+        document.getElementById('display-room-code').innerText = id.substring(0, 6).toUpperCase();
+      });
+
+      peer.on('connection', (conn) => {
+        // Hanya host yang menerima koneksi dari pemain lain
+        if (!isHost) return;
+
+        conn.on('data', (data) => {
+          handleIncomingNetworkData(conn, data);
+        });
+
+        conn.on('close', () => {
+          delete players[conn.peer];
+          broadcastLobby();
+        });
+      });
+    }
+
+    function handleIncomingNetworkData(conn, data) {
+      if (data.type === 'JOIN') {
+        // Maksimum 8 pemain
+        if (Object.keys(players).length >= 8) return;
+        players[conn.peer] = new Duck(conn.peer, data.name, data.color);
+        connections[conn.peer] = conn;
+        broadcastLobby();
+      } else if (data.type === 'INPUT') {
+        if (players[conn.peer]) {
+          players[conn.peer].input = data.input;
+        }
+      }
+    }
+
+    function broadcastLobby() {
+      const playerList = Object.values(players).map(p => ({ id: p.id, name: p.name, color: p.color }));
+      Object.values(connections).forEach(conn => {
+        conn.send({ type: 'LOBBY_UPDATE', players: playerList });
+      });
+      renderLobbyUI(playerList);
+    }
+
+    function broadcastGameTick() {
+      if (!isHost) return;
+      const syncData = Object.values(players).map(p => ({
+        id: p.id,
+        x: Math.round(p.x),
+        y: Math.round(p.y),
+        angle: p.angle,
+        speed: p.speed,
+        lap: p.lap,
+        finished: p.finished
+      }));
+
+      Object.values(connections).forEach(conn => {
+        conn.send({ type: 'GAME_TICK', ducks: syncData });
+      });
+    }
+
+    /* ========================================================
+       5. USER INTERFACE & INPUT EVENT LISTENERS
+       ======================================================== */
+    const nameInput = document.getElementById('player-name');
+    nameInput.value = myName;
+
+    // Tombol Buat Room (Host)
+    document.getElementById('btn-create-room').onclick = () => {
+      initAudio();
+      myName = nameInput.value || myName;
+      isHost = true;
+      const roomCode = 'DUCK' + Math.floor(1000 + Math.random() * 9000);
+      setupPeer(roomCode);
+
+      players[myPlayerId] = new Duck(myPlayerId, myName, selectedColor);
+      showLobby();
+      document.getElementById('btn-start-race').classList.remove('hidden');
+      document.getElementById('waiting-msg').classList.add('hidden');
+    };
+
+    // Tombol Gabung Room
+    document.getElementById('btn-join-room').onclick = () => {
+      initAudio();
+      const code = document.getElementById('join-room-id').value.trim();
+      if (!code) return alert("Masukkan kode room!");
+      myName = nameInput.value || myName;
+      isHost = false;
+
+      setupPeer();
+      peer.on('open', () => {
+        const conn = peer.connect(code);
+        connections['host'] = conn;
+
+        conn.on('open', () => {
+          conn.send({ type: 'JOIN', name: myName, color: selectedColor });
+          showLobby();
+        });
+
+        conn.on('data', (data) => {
+          if (data.type === 'LOBBY_UPDATE') {
+            renderLobbyUI(data.players);
+          } else if (data.type === 'START_RACE') {
+            startRace();
+          } else if (data.type === 'GAME_TICK') {
+            // Sinkronisasi data dari Host
+            data.ducks.forEach(d => {
+              if (players[d.id]) {
+                players[d.id].x = d.x;
+                players[d.id].y = d.y;
+                players[d.id].angle = d.angle;
+                players[d.id].speed = d.speed;
+                players[d.id].lap = d.lap;
+                players[d.id].finished = d.finished;
+              } else {
+                players[d.id] = new Duck(d.id, 'Bebek', '#fff');
+              }
+            });
+          }
+        });
+      });
+    };
+
+    // Mode Solo (Latihan + 7 Bot)
+    document.getElementById('btn-solo').onclick = () => {
+      initAudio();
+      isHost = true;
+      isSoloMode = true;
+      myName = nameInput.value || myName;
+      players[myPlayerId] = new Duck(myPlayerId, myName, selectedColor);
+
+      // Tambahkan 7 Bebek Bot
+      for (let i = 1; i <= 7; i++) {
+        const botId = 'bot_' + i;
+        players[botId] = new Duck(botId, `Bot ${i} 🤖`, DUCK_COLORS[i % DUCK_COLORS.length], true);
+      }
+      startRace();
+    };
+
+    function showLobby() {
+      document.getElementById('menu-screen').classList.add('hidden');
+      document.getElementById('lobby-screen').classList.remove('hidden');
+    }
+
+    function renderLobbyUI(list) {
+      const container = document.getElementById('lobby-players');
+      container.innerHTML = '';
+      list.forEach(p => {
+        const badge = document.createElement('div');
+        badge.className = 'player-badge';
+        badge.innerHTML = `<div class="duck-dot" style="background:${p.color}"></div><span>${p.name}</span>`;
+        container.appendChild(badge);
+      });
+    }
+
+    document.getElementById('btn-start-race').onclick = () => {
+      if (Object.keys(players).length < 1) return;
+      Object.values(connections).forEach(c => c.send({ type: 'START_RACE' }));
+      startRace();
+    };
+
+    function startRace() {
+      gameState = 'RACING';
+      document.getElementById('lobby-screen').classList.add('hidden');
+      document.getElementById('menu-screen').classList.add('hidden');
+      document.getElementById('hud').classList.remove('hidden');
+      document.getElementById('ranking-board').classList.remove('hidden');
+      if ('ontouchstart' in window) {
+        document.getElementById('mobile-controls').classList.remove('hidden');
+      }
+    }
+
+    /* Input Keyboard */
+    const keys = {};
+    window.addEventListener('keydown', (e) => {
+      keys[e.key.toLowerCase()] = true;
+      sendInput();
+    });
+    window.addEventListener('keyup', (e) => {
+      keys[e.key.toLowerCase()] = false;
+      sendInput();
+    });
+
+    // Mobile Virtual Touch
+    const bindTouch = (id, key) => {
+      const el = document.getElementById(id);
+      el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; sendInput(); });
+      el.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; sendInput(); });
+    };
+    bindTouch('btn-left', 'arrowleft');
+    bindTouch('btn-right', 'arrowright');
+    bindTouch('btn-gas', 'arrowup');
+    bindTouch('btn-quack', ' ');
+
+    function sendInput() {
+      const myInput = {
+        left: keys['arrowleft'] || keys['a'],
+        right: keys['arrowright'] || keys['d'],
+        gas: keys['arrowup'] || keys['w'],
+        quack: keys[' '] || keys['q']
+      };
+
+      if (players[myPlayerId]) {
+        players[myPlayerId].input = myInput;
+      }
+
+      if (!isHost && connections['host']) {
+        connections['host'].send({ type: 'INPUT', input: myInput });
+      }
+    }
+
+    /* ========================================================
+       6. GAME LOOP & RENDERING CANVAS (GRAFIK BEBEK & LINTASAN)
+       ======================================================== */
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function drawTrack(cameraX, cameraY) {
+      // Gambar Lintasan Air yang Mengalir
+      ctx.save();
+      ctx.translate(-cameraX + canvas.width / 2, -cameraY + canvas.height / 2);
+
+      // Gambar Tepi Kolam (Taman/Rumput)
+      ctx.fillStyle = '#15803d';
+      ctx.fillRect(-1000, -1000, 4000, 4000);
+
+      // Jalur Air Sirkuit
+      ctx.beginPath();
+      ctx.moveTo(TRACK_POINTS[0].x, TRACK_POINTS[0].y);
+      for (let i = 1; i < TRACK_POINTS.length; i++) {
+        ctx.lineTo(TRACK_POINTS[i].x, TRACK_POINTS[i].y);
+      }
+      ctx.closePath();
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      
+      // Pinggiran Jalur
+      ctx.strokeStyle = '#fef08a';
+      ctx.lineWidth = TRACK_WIDTH + 30;
+      ctx.stroke();
+
+      // Air Kolam Utama
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = TRACK_WIDTH;
+      ctx.stroke();
+
+      // Garis Finish
+      ctx.save();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 14;
+      ctx.beginPath();
+      ctx.moveTo(TRACK_POINTS[0].x, TRACK_POINTS[0].y - TRACK_WIDTH / 2);
+      ctx.lineTo(TRACK_POINTS[0].x, TRACK_POINTS[0].y + TRACK_WIDTH / 2);
+      ctx.stroke();
+      ctx.restore();
+
+      // Gambar Rintangan (Sabun Licin & Roti Turbo)
+      OBSTACLES.forEach(obs => {
+        ctx.save();
+        ctx.translate(obs.x, obs.y);
+        if (obs.type === 'SOAP') {
+          ctx.fillStyle = '#f472b6';
+          ctx.beginPath();
+          ctx.roundRect(-20, -12, 40, 24, 8);
+          ctx.fill();
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold 10px sans-serif';
+          ctx.fillText('SABUN', -18, 3);
+        } else {
+          // Roti (Boost Pad)
+          ctx.fillStyle = '#f59e0b';
+          ctx.beginPath();
+          ctx.arc(0, 0, 16, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#fff';
+          ctx.font = '14px sans-serif';
+          ctx.fillText('🍞', -8, 5);
+        }
+        ctx.restore();
+      });
+
+      // Partikel Air & Gelembung
+      bubbles.forEach((b, idx) => {
+        ctx.fillStyle = `rgba(255, 255, 255, ${b.alpha})`;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+        ctx.fill();
+        b.x += b.vx;
+        b.y += b.vy;
+        b.alpha -= 0.02;
+        if (b.alpha <= 0) bubbles.splice(idx, 1);
+      });
+
+      ctx.restore();
+    }
+
+    // Menggambar Bebek Karet Lucu
+    function drawDuck(duck, cameraX, cameraY) {
+      ctx.save();
+      ctx.translate(
+        duck.x - cameraX + canvas.width / 2,
+        duck.y - cameraY + canvas.height / 2
+      );
+      ctx.rotate(duck.angle);
+
+      // Goyangan membal saat berenang
+      const squish = Math.sin(duck.wobble) * 0.08;
+      ctx.scale(1 + squish, 1 - squish);
+
+      // Bayangan Bebek di Air
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+      ctx.beginPath();
+      ctx.ellipse(-2, 4, 22, 16, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Badan Bebek
+      ctx.fillStyle = duck.color;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 22, 16, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Ekor Bebek Menggemaskan
+      ctx.beginPath();
+      ctx.moveTo(-16, -2);
+      ctx.lineTo(-26, -8);
+      ctx.lineTo(-20, 4);
+      ctx.closePath();
+      ctx.fill();
+
+      // Kepala Bebek
+      ctx.beginPath();
+      ctx.arc(10, 0, 12, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Paruh Bebek (Orange)
+      ctx.fillStyle = '#ea580c';
+      ctx.beginPath();
+      ctx.moveTo(18, -4);
+      ctx.lineTo(28, 0);
+      ctx.lineTo(18, 4);
+      ctx.closePath();
+      ctx.fill();
+
+      // Mata Bebek yang Jenaka
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(14, -5, 3.5, 0, Math.PI * 2);
+      ctx.arc(14, 5, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(15, -5, 1.5, 0, Math.PI * 2);
+      ctx.arc(15, 5, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+
+      // Nama Bebek di atas kepala
+      ctx.save();
+      ctx.translate(
+        duck.x - cameraX + canvas.width / 2,
+        duck.y - cameraY + canvas.height / 2
+      );
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(duck.name, 0, -28);
+      ctx.restore();
+    }
+
+    /* Loop Utama Game */
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const myDuck = players[myPlayerId] || { x: 400, y: 300, lap: 1, speed: 0 };
+
+      if (gameState === 'RACING') {
+        // Pembaruan Fisika (Dilakukan Host atau Solo)
+        if (isHost) {
+          Object.values(players).forEach(p => p.update());
+
+          // Cek Tabrakan Antar Bebek (Bouncing)
+          const duckArr = Object.values(players);
+          for (let i = 0; i < duckArr.length; i++) {
+            for (let j = i + 1; j < duckArr.length; j++) {
+              const d1 = duckArr[i];
+              const d2 = duckArr[j];
+              const dist = Math.hypot(d2.x - d1.x, d2.y - d1.y);
+              if (dist < d1.radius + d2.radius) {
+                // Saling Membal Kocak
+                playSqueak();
+                const angle = Math.atan2(d2.y - d1.y, d2.x - d1.x);
+                d1.x -= Math.cos(angle) * 3;
+                d1.y -= Math.sin(angle) * 3;
+                d2.x += Math.cos(angle) * 3;
+                d2.y += Math.sin(angle) * 3;
+              }
+            }
+          }
+
+          broadcastGameTick();
+
+          // Cek jika semua bebek telah selesai balapan
+          const allFinished = Object.values(players).every(p => p.finished);
+          if (allFinished && gameState !== 'FINISHED') {
+            endGame();
+          }
+        }
+
+        // Efek gelembung air saat berenang cepat
+        if (Math.random() < 0.3 && myDuck.speed > 1) {
+          createBubbles(myDuck.x, myDuck.y, 2);
+        }
+
+        // Perbarui HUD
+        document.getElementById('hud-lap').innerText = `Lap: ${Math.min(myDuck.lap, TOTAL_LAPS)} / ${TOTAL_LAPS}`;
+        document.getElementById('hud-speed').innerText = `Kecepatan: ${Math.round(myDuck.speed * 10)}`;
+
+        // Klasemen Peringkat Sementara
+        const sortedDucks = Object.values(players).sort((a, b) => b.lap - a.lap || a.currentWayPoint - b.currentWayPoint);
+        const rankBoard = document.getElementById('ranking-board');
+        rankBoard.innerHTML = sortedDucks.map((d, i) => `${i + 1}. ${d.name} (L${Math.min(d.lap, TOTAL_LAPS)})`).join('<br>');
+      }
+
+      // Render Kamera Mengikuti Bebek Pemain
+      drawTrack(myDuck.x, myDuck.y);
+      Object.values(players).forEach(p => drawDuck(p, myDuck.x, myDuck.y));
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    function endGame() {
+      gameState = 'FINISHED';
+      confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+
+      const sortedDucks = Object.values(players).sort((a, b) => a.finishTime - b.finishTime);
+      const podiumList = document.getElementById('podium-list');
+      podiumList.innerHTML = sortedDucks.map((d, idx) => `
+        <div style="margin: 8px 0; font-weight: bold; color: ${idx === 0 ? '#ffbd00' : '#fff'}">
+          ${idx + 1}. 🦆 ${d.name} ${idx === 0 ? '👑 (Juara 1)' : ''}
+        </div>
+      `).join('');
+
+      document.getElementById('gameover-screen').classList.remove('hidden');
+    }
+
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>
